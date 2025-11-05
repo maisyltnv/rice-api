@@ -1,7 +1,14 @@
 package handlers
 
 import (
+	"fmt"
+	"mime/multipart"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 
 	"example.com/go-xampp-api/database"
 	"example.com/go-xampp-api/models"
@@ -32,11 +39,52 @@ func GetProduct(c *gin.Context) {
 
 // ສ້າງ product ໃໝ່
 func CreateProduct(c *gin.Context) {
+	// Support both JSON and multipart/form-data
+	contentType := c.Request.Header.Get("Content-Type")
 	var p models.Product
-	if err := c.BindJSON(&p); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+	if strings.Contains(strings.ToLower(contentType), "multipart/form-data") {
+		name := c.PostForm("name")
+		priceStr := c.PostForm("price")
+		if name == "" || priceStr == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "name and price are required"})
+			return
+		}
+		price, err := strconv.Atoi(priceStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "price must be a number"})
+			return
+		}
+		var categoryID *uint
+		if cid := c.PostForm("category_id"); cid != "" {
+			if v, err := strconv.Atoi(cid); err == nil {
+				vv := uint(v)
+				categoryID = &vv
+			} else {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "category_id must be a number"})
+				return
+			}
+		}
+
+		// Handle image upload
+		file, _ := c.FormFile("image")
+		var imagePath *string
+		if file != nil {
+			savedPath, err := saveUploadedFile(c, file)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			imagePath = &savedPath
+		}
+
+		p = models.Product{Name: name, Price: price, CategoryID: categoryID, Image: imagePath}
+	} else {
+		if err := c.BindJSON(&p); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 	}
+
 	if err := database.DB.Create(&p).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -52,35 +100,74 @@ func UpdateProduct(c *gin.Context) {
 		return
 	}
 
-	// Use a dedicated input with pointers to detect which fields are present
-	type updateProductInput struct {
-		Name       *string `json:"name"`
-		Price      *int    `json:"price"`
-		CategoryID *uint   `json:"category_id"`
-	}
-
-	var in updateProductInput
-	if err := c.BindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	updates := map[string]interface{}{}
-	if in.Name != nil {
-		updates["name"] = *in.Name
-	}
-	if in.Price != nil {
-		updates["price"] = *in.Price
-	}
-	// Explicitly include category_id when present so it never gets ignored
-	if in.CategoryID != nil {
-		updates["category_id"] = *in.CategoryID
-	}
-
-	if len(updates) > 0 {
-		if err := database.DB.Model(&p).Select("name", "price", "category_id").Updates(updates).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if strings.Contains(strings.ToLower(c.Request.Header.Get("Content-Type")), "multipart/form-data") {
+		updates := map[string]interface{}{}
+		if v := c.PostForm("name"); v != "" {
+			updates["name"] = v
+		}
+		if v := c.PostForm("price"); v != "" {
+			if iv, err := strconv.Atoi(v); err == nil {
+				updates["price"] = iv
+			} else {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "price must be a number"})
+				return
+			}
+		}
+		if v := c.PostForm("category_id"); v != "" {
+			if iv, err := strconv.Atoi(v); err == nil {
+				updates["category_id"] = uint(iv)
+			} else {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "category_id must be a number"})
+				return
+			}
+		}
+		// image file
+		file, _ := c.FormFile("image")
+		if file != nil {
+			savedPath, err := saveUploadedFile(c, file)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			updates["image"] = savedPath
+		}
+		if len(updates) > 0 {
+			if err := database.DB.Model(&p).Select("name", "price", "category_id", "image").Updates(updates).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+		}
+	} else {
+		// JSON update (backward compatible)
+		type updateProductInput struct {
+			Name       *string `json:"name"`
+			Price      *int    `json:"price"`
+			CategoryID *uint   `json:"category_id"`
+			Image      *string `json:"image"`
+		}
+		var in updateProductInput
+		if err := c.BindJSON(&in); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
+		}
+		updates := map[string]interface{}{}
+		if in.Name != nil {
+			updates["name"] = *in.Name
+		}
+		if in.Price != nil {
+			updates["price"] = *in.Price
+		}
+		if in.CategoryID != nil {
+			updates["category_id"] = *in.CategoryID
+		}
+		if in.Image != nil {
+			updates["image"] = *in.Image
+		}
+		if len(updates) > 0 {
+			if err := database.DB.Model(&p).Select("name", "price", "category_id", "image").Updates(updates).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
 		}
 	}
 
@@ -90,6 +177,23 @@ func UpdateProduct(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, p)
+}
+
+// saveUploadedFile stores the file under ./uploads and returns the relative path
+func saveUploadedFile(c *gin.Context, file *multipart.FileHeader) (string, error) {
+	// Ensure uploads directory exists
+	if err := os.MkdirAll("uploads", 0755); err != nil {
+		return "", err
+	}
+	// Keep original extension, generate unique name
+	ext := filepath.Ext(file.Filename)
+	filename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
+	dst := filepath.Join("uploads", filename)
+	if err := c.SaveUploadedFile(file, dst); err != nil {
+		return "", err
+	}
+	// Expose via /uploads in main.go
+	return "/uploads/" + filename, nil
 }
 
 // ລົບ product

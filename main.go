@@ -15,6 +15,9 @@ func main() {
 
 	r := gin.Default()
 
+	// Serve uploaded files
+	r.Static("/uploads", "./uploads")
+
 	// Health check
 	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"ok": true}) })
 

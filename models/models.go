@@ -13,6 +13,7 @@ type Product struct {
 	ID         uint      `json:"id" gorm:"primaryKey"`
 	Name       string    `json:"name"`
 	Price      int       `json:"price"`
+    Image      *string   `json:"image"`
 	CategoryID *uint     `json:"category_id"`                                     // ໃຊ້ pointer ເພື່ອໃຫ້ສາມາດເປັນ null ໄດ້
 	Category   *Category `json:"category,omitempty" gorm:"foreignKey:CategoryID"` // Eager loading
 }
