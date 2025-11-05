@@ -51,13 +51,41 @@ func UpdateProduct(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 		return
 	}
-	var in models.Product
+
+	// Use a dedicated input with pointers to detect which fields are present
+	type updateProductInput struct {
+		Name       *string `json:"name"`
+		Price      *int    `json:"price"`
+		CategoryID *uint   `json:"category_id"`
+	}
+
+	var in updateProductInput
 	if err := c.BindJSON(&in); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	p.Name, p.Price = in.Name, in.Price
-	if err := database.DB.Save(&p).Error; err != nil {
+
+	updates := map[string]interface{}{}
+	if in.Name != nil {
+		updates["name"] = *in.Name
+	}
+	if in.Price != nil {
+		updates["price"] = *in.Price
+	}
+	// Explicitly include category_id when present so it never gets ignored
+	if in.CategoryID != nil {
+		updates["category_id"] = *in.CategoryID
+	}
+
+	if len(updates) > 0 {
+		if err := database.DB.Model(&p).Select("name", "price", "category_id").Updates(updates).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	// Reload with Category for response
+	if err := database.DB.Preload("Category").First(&p, p.ID).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

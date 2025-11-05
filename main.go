@@ -3,10 +3,10 @@ package main
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"example.com/go-xampp-api/database"
 	"example.com/go-xampp-api/handlers"
 	"example.com/go-xampp-api/middleware"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -50,5 +50,5 @@ func main() {
 	r.PUT("/orders/:id/status", middleware.AuthMiddleware(), handlers.UpdateOrderStatus)
 	r.DELETE("/orders/:id", middleware.AuthMiddleware(), handlers.DeleteOrder)
 
-	r.Run(":8080")
+	r.Run(":8081")
 }
