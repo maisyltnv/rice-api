@@ -15,6 +15,9 @@ func main() {
 
 	r := gin.Default()
 
+	// Add CORS middleware
+	r.Use(middleware.CORSMiddleware())
+
 	// Serve uploaded files
 	r.Static("/uploads", "./uploads")
 

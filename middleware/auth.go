@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 
 	"example.com/go-xampp-api/utils"
@@ -14,7 +15,10 @@ func AuthMiddleware() gin.HandlerFunc {
 		// ດຶງ token ຈາກ Authorization header
 		tokenString := c.GetHeader("Authorization")
 		if tokenString == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "ບໍ່ມີ token, ກະລຸນາເຂົ້າສູ່ລະບົບກ່ອນ"})
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":   "Unauthorized",
+				"message": "ບໍ່ມີ token, ກະລຸນາເຂົ້າສູ່ລະບົບກ່ອນ. Authorization header ບໍ່ພົບ",
+			})
 			c.Abort()
 			return
 		}
@@ -34,15 +38,26 @@ func AuthMiddleware() gin.HandlerFunc {
 		})
 
 		if err != nil || !token.Valid {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token ບໍ່ຖືກຕ້ອງຫຼືໝົດອາຍຸແລ້ວ"})
+			errorMsg := "Token ບໍ່ຖືກຕ້ອງຫຼືໝົດອາຍຸແລ້ວ"
+			if err != nil {
+				errorMsg = fmt.Sprintf("Token validation failed: %v", err)
+			}
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":   "Unauthorized",
+				"message": errorMsg,
+			})
 			c.Abort()
 			return
 		}
 
 		// ເອົາຂໍ້ມູນຈາກ token ໃສ່ context
 		if claims, ok := token.Claims.(jwt.MapClaims); ok {
-			c.Set("user_id", uint(claims["user_id"].(float64)))
-			c.Set("username", claims["username"].(string))
+			if userID, ok := claims["user_id"].(float64); ok {
+				c.Set("user_id", uint(userID))
+			}
+			if username, ok := claims["username"].(string); ok {
+				c.Set("username", username)
+			}
 		}
 
 		c.Next()
