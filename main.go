@@ -53,9 +53,9 @@ func main() {
 	r.PUT("/customers/:id", middleware.AuthMiddleware(), handlers.UpdateCustomer)
 	r.DELETE("/customers/:id", middleware.AuthMiddleware(), handlers.DeleteCustomer)
 
-	// ORDER routes
-	r.GET("/orders", handlers.GetOrders)
-	r.GET("/orders/:id", handlers.GetOrder)
+    // ORDER routes
+    r.GET("/orders", middleware.AuthMiddleware(), handlers.GetOrders)
+    r.GET("/orders/:id", middleware.AuthMiddleware(), handlers.GetOrder)
 	r.POST("/orders", middleware.AuthMiddleware(), handlers.CreateOrder)
 	r.PUT("/orders/:id/status", middleware.AuthMiddleware(), handlers.UpdateOrderStatus)
 	r.DELETE("/orders/:id", middleware.AuthMiddleware(), handlers.DeleteOrder)

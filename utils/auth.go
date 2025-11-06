@@ -24,10 +24,11 @@ func CheckPasswordHash(password, hash string) bool {
 }
 
 // ສ້າງ JWT token
-func GenerateToken(userID uint, username string) (string, error) {
+func GenerateToken(userID uint, username string, role string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id":  userID,
 		"username": username,
+		"role":     role, // "admin" or "customer"
 		"exp":      time.Now().Add(time.Hour * 24 * 7).Unix(), // Token ໝົດອາຍຸໃນ 7 ວັນ
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

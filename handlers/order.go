@@ -11,7 +11,39 @@ import (
 // ເບິ່ງ orders ທັງໝົດ
 func GetOrders(c *gin.Context) {
 	var items []models.Order
-	if err := database.DB.Preload("Customer").Preload("OrderItems.Product").Find(&items).Error; err != nil {
+	query := database.DB.Preload("Customer").Preload("OrderItems.Product")
+
+	// Determine access: default to customer-restricted unless role is explicitly admin
+	if v, ok := c.Get("role"); ok {
+		if role, ok2 := v.(string); ok2 && role == "admin" {
+			// admin: no filtering
+		} else {
+			// customer or unknown role: restrict
+			if cid, ok3 := c.Get("customer_id"); ok3 {
+				query = query.Where("customer_id = ?", cid)
+			} else if uname, ok4 := c.Get("username"); ok4 {
+				// Backward compatibility: try to resolve by email from token
+				if email, ok5 := uname.(string); ok5 && email != "" {
+					var cust models.Customer
+					if err := database.DB.Where("email = ?", email).First(&cust).Error; err == nil {
+						query = query.Where("customer_id = ?", cust.ID)
+					}
+				}
+			}
+		}
+	} else {
+		// No role in token: attempt email fallback
+		if uname, ok := c.Get("username"); ok {
+			if email, ok2 := uname.(string); ok2 && email != "" {
+				var cust models.Customer
+				if err := database.DB.Where("email = ?", email).First(&cust).Error; err == nil {
+					query = query.Where("customer_id = ?", cust.ID)
+				}
+			}
+		}
+	}
+
+	if err := query.Find(&items).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -25,6 +57,31 @@ func GetOrder(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "order not found"})
 		return
 	}
+
+	// Enforce customer-only access unless explicit admin role
+	if v, ok := c.Get("role"); ok {
+		if role, ok2 := v.(string); ok2 && role == "admin" {
+			// admin allowed
+		} else {
+			if cid, ok3 := c.Get("customer_id"); ok3 {
+				if order.CustomerID != cid {
+					c.JSON(http.StatusForbidden, gin.H{"error": "ບໍ່ມີສິດເຂົ້າເຖິງ order ນີ້"})
+					return
+				}
+			} else if uname, ok4 := c.Get("username"); ok4 {
+				if email, ok5 := uname.(string); ok5 && email != "" {
+					var cust models.Customer
+					if err := database.DB.Where("email = ?", email).First(&cust).Error; err == nil {
+						if order.CustomerID != cust.ID {
+							c.JSON(http.StatusForbidden, gin.H{"error": "ບໍ່ມີສິດເຂົ້າເຖິງ order ນີ້"})
+							return
+						}
+					}
+				}
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, order)
 }
 
@@ -34,6 +91,15 @@ func CreateOrder(c *gin.Context) {
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	// ຖ້າເປັນ customer, ໃຊ້ customer_id ຈາກ token ໂດຍອັດຕະໂນມັດ
+	role, exists := c.Get("role")
+	if exists && role == "customer" {
+		customerID, exists := c.Get("customer_id")
+		if exists {
+			input.CustomerID = customerID.(uint)
+		}
 	}
 
 	// ກວດສອບວ່າ customer ມີຢູ່ບໍ່

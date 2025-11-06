@@ -185,7 +185,7 @@ func CustomerRegister(c *gin.Context) {
 	}
 
 	// ສ້າງ token
-	token, err := utils.GenerateToken(customer.ID, customer.Email)
+	token, err := utils.GenerateToken(customer.ID, customer.Email, "customer")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "ບໍ່ສາມາດສ້າງ token ໄດ້"})
 		return
@@ -225,7 +225,7 @@ func CustomerLogin(c *gin.Context) {
 	}
 
 	// ສ້າງ token
-	token, err := utils.GenerateToken(customer.ID, customer.Email)
+	token, err := utils.GenerateToken(customer.ID, customer.Email, "customer")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "ບໍ່ສາມາດສ້າງ token ໄດ້"})
 		return
