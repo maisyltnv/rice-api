@@ -24,9 +24,13 @@ func main() {
 	// Health check
 	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"ok": true}) })
 
-	// AUTH routes
+	// AUTH routes (Admin/User)
 	r.POST("/register", handlers.Register)
 	r.POST("/login", handlers.Login)
+
+	// CUSTOMER AUTH routes
+	r.POST("/customers/register", handlers.CustomerRegister)
+	r.POST("/customers/login", handlers.CustomerLogin)
 
 	// CATEGORY routes
 	r.GET("/categories", handlers.GetCategories)

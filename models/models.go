@@ -30,6 +30,7 @@ type Customer struct {
 	ID        uint      `json:"id" gorm:"primaryKey"`
 	Name      string    `json:"name" gorm:"not null"`
 	Email     string    `json:"email" gorm:"unique;not null"`
+	Password  string    `json:"-" gorm:"not null"` // "-" ບໍ່ສົ່ງ password ອອກໄປໃນ JSON
 	Phone     string    `json:"phone"`
 	Address   string    `json:"address"`
 	CreatedAt time.Time `json:"created_at"`
@@ -84,4 +85,19 @@ type CreateOrderItemInput struct {
 // Struct ສຳລັບອັບເດດ Order status
 type UpdateOrderStatusInput struct {
 	Status string `json:"status" binding:"required,oneof=pending processing shipped delivered cancelled"`
+}
+
+// Struct ສຳລັບຮັບຂໍ້ມູນການລົງທະບຽນ Customer
+type CustomerRegisterInput struct {
+	Name     string `json:"name" binding:"required"`
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required,min=6"`
+	Phone    string `json:"phone"`
+	Address  string `json:"address"`
+}
+
+// Struct ສຳລັບຮັບຂໍ້ມູນການເຂົ້າສູ່ລະບົບ Customer
+type CustomerLoginInput struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required"`
 }
