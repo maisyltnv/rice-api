@@ -38,14 +38,15 @@ type Customer struct {
 }
 
 type Order struct {
-	ID          uint        `json:"id" gorm:"primaryKey"`
-	CustomerID  uint        `json:"customer_id" gorm:"not null"`
-	Customer    *Customer   `json:"customer,omitempty" gorm:"foreignKey:CustomerID"`
-	Status      string      `json:"status" gorm:"default:'pending'"` // pending, processing, shipped, delivered, cancelled
-	TotalAmount int         `json:"total_amount"`
-	OrderItems  []OrderItem `json:"order_items,omitempty" gorm:"foreignKey:OrderID"`
-	CreatedAt   time.Time   `json:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at"`
+	ID              uint        `json:"id" gorm:"primaryKey"`
+	CustomerID      uint        `json:"customer_id" gorm:"not null"`
+	Customer        *Customer   `json:"customer,omitempty" gorm:"foreignKey:CustomerID"`
+	Status          string      `json:"status" gorm:"default:'pending'"` // pending, processing, shipped, delivered, cancelled
+	TotalAmount     int         `json:"total_amount"`
+	ShippingAddress string      `json:"shipping_address"` // ທີ່ຢູ່ຈັດສົ່ງ
+	OrderItems      []OrderItem `json:"order_items,omitempty" gorm:"foreignKey:OrderID"`
+	CreatedAt       time.Time   `json:"created_at"`
+	UpdatedAt       time.Time   `json:"updated_at"`
 }
 
 type OrderItem struct {
@@ -71,10 +72,26 @@ type LoginInput struct {
 	Password string `json:"password" binding:"required"`
 }
 
+// Struct ສຳລັບທີ່ຢູ່ຈັດສົ່ງ
+type ShippingAddressInput struct {
+	Street  string `json:"street"`
+	City    string `json:"city"`
+	State   string `json:"state"`
+	ZipCode string `json:"zip_code"`
+	Country string `json:"country"`
+}
+
 // Struct ສຳລັບຮັບຂໍ້ມູນການສ້າງ Order
 type CreateOrderInput struct {
-	CustomerID uint                   `json:"customer_id" binding:"required"`
-	Items      []CreateOrderItemInput `json:"items" binding:"required,min=1"`
+	// Customer details (for guest checkout or new customer)
+	Email        string                `json:"email"`
+	FirstName    string                `json:"first_name"`
+	LastName     string                `json:"last_name"`
+	CustomerName string                `json:"customer_name"`
+	// CustomerID (optional - used if customer is logged in)
+	CustomerID      *uint                  `json:"customer_id"`
+	Items           []CreateOrderItemInput `json:"items" binding:"required,min=1"`
+	ShippingAddress ShippingAddressInput `json:"shipping_address"`
 }
 
 type CreateOrderItemInput struct {

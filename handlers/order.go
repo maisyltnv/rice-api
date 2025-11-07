@@ -1,10 +1,14 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
+	"time"
 
 	"example.com/go-xampp-api/database"
 	"example.com/go-xampp-api/models"
+	"example.com/go-xampp-api/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -93,26 +97,90 @@ func CreateOrder(c *gin.Context) {
 		return
 	}
 
-	// ຖ້າເປັນ customer, ໃຊ້ customer_id ຈາກ token ໂດຍອັດຕະໂນມັດ
+	var customer models.Customer
+	var customerID uint
+
+	// ກວດສອບວ່າ customer ເຂົ້າສູ່ລະບົບບໍ່ (ມີ token)
 	role, exists := c.Get("role")
 	if exists && role == "customer" {
-		customerID, exists := c.Get("customer_id")
-		if exists {
-			input.CustomerID = customerID.(uint)
+		// ຖ້າເປັນ customer ທີ່ເຂົ້າສູ່ລະບົບ, ໃຊ້ customer_id ຈາກ token
+		if cid, ok := c.Get("customer_id"); ok {
+			customerID = cid.(uint)
+			if err := database.DB.First(&customer, customerID).Error; err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "customer not found"})
+				return
+			}
 		}
+	} else {
+		// Guest checkout ຫຼື customer ໃໝ່ - ຊອກຫາຫຼືສ້າງ customer ຈາກ email
+		if input.Email == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "email is required for guest checkout"})
+			return
+		}
+
+		// ຊອກຫາ customer ດ້ວຍ email
+		err := database.DB.Where("email = ?", input.Email).First(&customer).Error
+		if err != nil {
+			// ຖ້າບໍ່ພົບ, ສ້າງ customer ໃໝ່ (guest checkout)
+			customerName := input.CustomerName
+			if customerName == "" {
+				customerName = fmt.Sprintf("%s %s", input.FirstName, input.LastName)
+				customerName = strings.TrimSpace(customerName)
+			}
+			if customerName == "" {
+				customerName = input.Email // Fallback to email if no name provided
+			}
+
+			// Generate a temporary password for guest customers (they can set a real one later if they register)
+			// Using a placeholder that won't work for login unless they set a real password
+			tempPassword := fmt.Sprintf("guest_%d", time.Now().UnixNano())
+			hashedPassword, err := utils.HashPassword(tempPassword)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to hash password: " + err.Error()})
+				return
+			}
+
+			customer = models.Customer{
+				Name:    customerName,
+				Email:   input.Email,
+				Phone:   "", // Can be added later
+				Address:  "", // Can be added later
+				Password: hashedPassword,
+			}
+
+			// ສ້າງ customer ໃໝ່
+			if err := database.DB.Create(&customer).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create customer: " + err.Error()})
+				return
+			}
+		}
+		customerID = customer.ID
 	}
 
-	// ກວດສອບວ່າ customer ມີຢູ່ບໍ່
-	var customer models.Customer
-	if err := database.DB.First(&customer, input.CustomerID).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "customer not found"})
-		return
+	// ສ້າງ shipping address string ຈາກ structured object
+	shippingAddrParts := []string{}
+	if input.ShippingAddress.Street != "" {
+		shippingAddrParts = append(shippingAddrParts, input.ShippingAddress.Street)
 	}
+	if input.ShippingAddress.City != "" {
+		shippingAddrParts = append(shippingAddrParts, input.ShippingAddress.City)
+	}
+	if input.ShippingAddress.State != "" {
+		shippingAddrParts = append(shippingAddrParts, input.ShippingAddress.State)
+	}
+	if input.ShippingAddress.ZipCode != "" {
+		shippingAddrParts = append(shippingAddrParts, input.ShippingAddress.ZipCode)
+	}
+	if input.ShippingAddress.Country != "" {
+		shippingAddrParts = append(shippingAddrParts, input.ShippingAddress.Country)
+	}
+	shippingAddressStr := strings.Join(shippingAddrParts, ", ")
 
 	// ສ້າງ order ໃໝ່
 	order := models.Order{
-		CustomerID: input.CustomerID,
-		Status:     "pending",
+		CustomerID:      customerID,
+		Status:          "pending",
+		ShippingAddress: shippingAddressStr,
 	}
 
 	// ເລີ່ມ transaction
