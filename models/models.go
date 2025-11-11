@@ -13,7 +13,7 @@ type Product struct {
 	ID         uint      `json:"id" gorm:"primaryKey"`
 	Name       string    `json:"name"`
 	Price      int       `json:"price"`
-    Image      *string   `json:"image"`
+	Image      *string   `json:"image"`
 	CategoryID *uint     `json:"category_id"`                                     // ໃຊ້ pointer ເພື່ອໃຫ້ສາມາດເປັນ null ໄດ້
 	Category   *Category `json:"category,omitempty" gorm:"foreignKey:CategoryID"` // Eager loading
 }
@@ -55,6 +55,7 @@ type OrderItem struct {
 	Order     *Order   `json:"order,omitempty" gorm:"foreignKey:OrderID"`
 	ProductID uint     `json:"product_id" gorm:"not null"`
 	Product   *Product `json:"product,omitempty" gorm:"foreignKey:ProductID"`
+	Image     *string  `json:"image,omitempty" gorm:"column:product_image"`
 	Quantity  int      `json:"quantity" gorm:"not null"`
 	Price     int      `json:"price" gorm:"not null"` // ລາຄາໃນຕອນທີ່ສັ່ງຊື້
 }
@@ -84,14 +85,14 @@ type ShippingAddressInput struct {
 // Struct ສຳລັບຮັບຂໍ້ມູນການສ້າງ Order
 type CreateOrderInput struct {
 	// Customer details (for guest checkout or new customer)
-	Email        string                `json:"email"`
-	FirstName    string                `json:"first_name"`
-	LastName     string                `json:"last_name"`
-	CustomerName string                `json:"customer_name"`
+	Email        string `json:"email"`
+	FirstName    string `json:"first_name"`
+	LastName     string `json:"last_name"`
+	CustomerName string `json:"customer_name"`
 	// CustomerID (optional - used if customer is logged in)
 	CustomerID      *uint                  `json:"customer_id"`
 	Items           []CreateOrderItemInput `json:"items" binding:"required,min=1"`
-	ShippingAddress ShippingAddressInput `json:"shipping_address"`
+	ShippingAddress ShippingAddressInput   `json:"shipping_address"`
 }
 
 type CreateOrderItemInput struct {

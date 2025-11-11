@@ -141,9 +141,9 @@ func CreateOrder(c *gin.Context) {
 			}
 
 			customer = models.Customer{
-				Name:    customerName,
-				Email:   input.Email,
-				Phone:   "", // Can be added later
+				Name:     customerName,
+				Email:    input.Email,
+				Phone:    "", // Can be added later
 				Address:  "", // Can be added later
 				Password: hashedPassword,
 			}
@@ -206,6 +206,7 @@ func CreateOrder(c *gin.Context) {
 			OrderID:   order.ID,
 			ProductID: item.ProductID,
 			Quantity:  item.Quantity,
+			Image:     product.Image,
 			Price:     product.Price,
 		}
 
