@@ -60,6 +60,30 @@ type OrderItem struct {
 	Price     int      `json:"price" gorm:"not null"` // ລາຄາໃນຕອນທີ່ສັ່ງຊື້
 }
 
+type Cart struct {
+	ID          uint       `json:"id" gorm:"primaryKey"`
+	CustomerID  uint       `json:"customer_id" gorm:"uniqueIndex"`
+	Items       []CartItem `json:"items,omitempty" gorm:"foreignKey:CartID"`
+	TotalAmount int        `json:"total_amount"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
+type CartItem struct {
+	ID           uint      `json:"id" gorm:"primaryKey"`
+	CartID       uint      `json:"cart_id" gorm:"index"`
+	Cart         *Cart     `json:"-" gorm:"foreignKey:CartID"`
+	ProductID    uint      `json:"product_id" gorm:"not null"`
+	Product      *Product  `json:"product,omitempty" gorm:"foreignKey:ProductID"`
+	ProductName  string    `json:"product_name"`
+	ProductImage *string   `json:"product_image"`
+	UnitPrice    int       `json:"unit_price"`
+	Quantity     int       `json:"quantity"`
+	Subtotal     int       `json:"subtotal" gorm:"-"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
 // Struct ສຳລັບຮັບຂໍ້ມູນການລົງທະບຽນ
 type RegisterInput struct {
 	Username string `json:"username" binding:"required"`
@@ -118,4 +142,13 @@ type CustomerRegisterInput struct {
 type CustomerLoginInput struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
+}
+
+type AddCartItemInput struct {
+	ProductID uint `json:"product_id" binding:"required"`
+	Quantity  int  `json:"quantity" binding:"required,min=1"`
+}
+
+type UpdateCartItemInput struct {
+	Quantity int `json:"quantity" binding:"required,min=1"`
 }

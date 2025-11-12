@@ -21,7 +21,16 @@ func InitDB() {
 	DB = db
 
 	// Auto-migrate
-	if err := DB.AutoMigrate(&models.Category{}, &models.Product{}, &models.User{}, &models.Customer{}, &models.Order{}, &models.OrderItem{}); err != nil {
+	if err := DB.AutoMigrate(
+		&models.Category{},
+		&models.Product{},
+		&models.User{},
+		&models.Customer{},
+		&models.Order{},
+		&models.OrderItem{},
+		&models.Cart{},
+		&models.CartItem{},
+	); err != nil {
 		log.Fatal(err)
 	}
 }

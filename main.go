@@ -53,12 +53,23 @@ func main() {
 	r.PUT("/customers/:id", middleware.AuthMiddleware(), handlers.UpdateCustomer)
 	r.DELETE("/customers/:id", middleware.AuthMiddleware(), handlers.DeleteCustomer)
 
-    // ORDER routes
-    r.GET("/orders", middleware.AuthMiddleware(), handlers.GetOrders)
-    r.GET("/orders/:id", middleware.AuthMiddleware(), handlers.GetOrder)
+	// ORDER routes
+	r.GET("/orders", middleware.AuthMiddleware(), handlers.GetOrders)
+	r.GET("/orders/:id", middleware.AuthMiddleware(), handlers.GetOrder)
 	r.POST("/orders", middleware.AuthMiddleware(), handlers.CreateOrder)
 	r.PUT("/orders/:id/status", middleware.AuthMiddleware(), handlers.UpdateOrderStatus)
 	r.DELETE("/orders/:id", middleware.AuthMiddleware(), handlers.DeleteOrder)
+
+	// CART routes (Customer)
+	cartRoutes := r.Group("/cart")
+	cartRoutes.Use(middleware.AuthMiddleware())
+	{
+		cartRoutes.GET("", handlers.GetCart)
+		cartRoutes.POST("/items", handlers.AddCartItem)
+		cartRoutes.PUT("/items/:item_id", handlers.UpdateCartItem)
+		cartRoutes.DELETE("/items/:item_id", handlers.DeleteCartItem)
+		cartRoutes.DELETE("", handlers.ClearCart)
+	}
 
 	r.Run(":8081")
 }
